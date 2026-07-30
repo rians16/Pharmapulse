@@ -1,5 +1,6 @@
 import yfinance as yf
 import matplotlib.pyplot as plt
+import time
 
 companies = {
     "AZN": "AstraZeneca",
@@ -12,15 +13,43 @@ companies = {
 returns = {}
 volatility = {}
 risk_score = {}
+market_caps = {}
 
 
+def get_market_cap(stock):
+    # fast_info is quicker and less prone to silently returning None
+    try:
+        cap = stock.fast_info.get("marketCap")
+        if cap:
+            return cap
+    except Exception:
+        pass
 
-plt.figure(figsize=(14,8))
+    # fallback: derive it manually from shares outstanding * last price
+    try:
+        info = stock.info
+        cap = info.get("marketCap")
+        if cap:
+            return cap
+        shares = info.get("sharesOutstanding")
+        last_price = stock.fast_info.get("lastPrice")
+        if shares and last_price:
+            return shares * last_price
+    except Exception:
+        pass
+
+    return 0
+
+
+plt.figure(figsize=(14, 8))
 
 for ticker, company in companies.items():
 
     stock = yf.Ticker(ticker)
     history = stock.history(period="1y")
+
+    market_caps[company] = get_market_cap(stock)
+    print(company, market_caps[company])
 
     # calculate yearly return
     start_price = history["Close"].iloc[0]
@@ -34,6 +63,7 @@ for ticker, company in companies.items():
     annual_volatility = daily_returns.std() * (252 ** 0.5) * 100
 
     volatility[company] = annual_volatility
+
     risk_score[company] = yearly_return / annual_volatility
 
     # create normalized graph
@@ -45,6 +75,8 @@ for ticker, company in companies.items():
         label=company
     )
 
+    time.sleep(1)  # small delay avoids throttling
+
 # graph
 plt.title("PharmaPulse: 1-Year Relative Performance")
 plt.xlabel("Date")
@@ -54,6 +86,15 @@ plt.grid(True)
 
 plt.savefig("pharmapulse_comparison.png")
 plt.show()
+
+
+def format_market_cap(value):
+    if value >= 1_000_000_000_000:
+        return f"${value / 1_000_000_000_000:.2f}T"
+    elif value >= 1_000_000_000:
+        return f"${value / 1_000_000_000:.0f}B"
+    else:
+        return f"${value:,.0f}"
 
 # ranking section
 print("\n")
@@ -103,3 +144,17 @@ for i, (company, score) in enumerate(risk_rank, 1):
 
 print("\n🏆 Best Risk-Adjusted Investment:")
 print(f"{risk_rank[0][0]} ({risk_rank[0][1]:.2f})")
+
+print("\n")
+print("=" * 40)
+print("      MARKET CAP RANKINGS")
+print("=" * 40)
+
+market_rank = sorted(
+    market_caps.items(),
+    key=lambda x: x[1],
+    reverse=True
+)
+
+for i, (company, cap) in enumerate(market_rank, 1):
+    print(f"{i}. {company:<15} {format_market_cap(cap)}")

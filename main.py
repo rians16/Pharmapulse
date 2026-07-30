@@ -14,7 +14,7 @@ returns = {}
 volatility = {}
 risk_score = {}
 market_caps = {}
-
+dividend_yields = {}
 
 def get_market_cap(stock):
     # fast_info is quicker and less prone to silently returning None
@@ -40,6 +40,18 @@ def get_market_cap(stock):
 
     return 0
 
+def get_info_field(stock, field, default=0):
+    """Fetch a single field from .info with basic retry on transient failures."""
+    for attempt in range(3):
+        try:
+            info = stock.info
+            value = info.get(field)
+            if value is not None:
+                return value
+            return default
+        except Exception:
+            time.sleep(1.5 * (attempt + 1))
+    return default
 
 plt.figure(figsize=(14, 8))
 
@@ -49,6 +61,7 @@ for ticker, company in companies.items():
     history = stock.history(period="1y")
 
     market_caps[company] = get_market_cap(stock)
+    dividend_yields[company] = get_info_field(stock, "dividendYield", 0)
     print(company, market_caps[company])
 
     # calculate yearly return
@@ -65,6 +78,8 @@ for ticker, company in companies.items():
     volatility[company] = annual_volatility
 
     risk_score[company] = yearly_return / annual_volatility
+
+
 
     # create normalized graph
     normalized = history["Close"] / start_price * 100
@@ -95,6 +110,8 @@ def format_market_cap(value):
         return f"${value / 1_000_000_000:.0f}B"
     else:
         return f"${value:,.0f}"
+    
+
 
 # ranking section
 print("\n")
@@ -158,3 +175,19 @@ market_rank = sorted(
 
 for i, (company, cap) in enumerate(market_rank, 1):
     print(f"{i}. {company:<15} {format_market_cap(cap)}")
+    print("\n")
+print("=" * 40)
+print("      DIVIDEND YIELD RANKINGS")
+print("=" * 40)
+
+div_rank = sorted(
+    dividend_yields.items(),
+    key=lambda x: x[1],
+    reverse=True
+)
+
+for i, (company, yld) in enumerate(div_rank, 1):
+    print(f"{i}. {company:<15} {yld:.2f}%")
+print("\n")
+print("=" * 40)
+    

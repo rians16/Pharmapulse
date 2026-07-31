@@ -15,6 +15,7 @@ volatility = {}
 risk_score = {}
 market_caps = {}
 dividend_yields = {}
+pe_ratios = {}
 
 def get_market_cap(stock):
     # fast_info is quicker and less prone to silently returning None
@@ -63,7 +64,7 @@ for ticker, company in companies.items():
     market_caps[company] = get_market_cap(stock)
     dividend_yields[company] = get_info_field(stock, "dividendYield", 0)
     print(company, market_caps[company])
-
+    pe_ratios[company] = get_info_field(stock, "trailingPE", 0)
     # calculate yearly return
     start_price = history["Close"].iloc[0]
     end_price = history["Close"].iloc[-1]
@@ -190,4 +191,16 @@ for i, (company, yld) in enumerate(div_rank, 1):
     print(f"{i}. {company:<15} {yld:.2f}%")
 print("\n")
 print("=" * 40)
-    
+
+print("\n")
+print("=" * 40)
+print("      P/E RATIO RANKINGS")
+print("=" * 40)
+
+pe_rank = sorted(
+    pe_ratios.items(),
+    key=lambda x: x[1]
+)
+
+for i, (company, pe) in enumerate(pe_rank, 1):
+    print(f"{i}. {company:<15} {pe:.2f}")
